@@ -129,7 +129,7 @@ export default function WorkingCapitalPage() {
                     color: "#f5f5f4",
                     fontSize: 13,
                   }}
-                  formatter={(value: number) => formatCurrency(value)}
+                  formatter={(value: any) => formatCurrency(Number(value))}
                 />
                 <Bar dataKey="inflow" fill="#10b981" radius={[6, 6, 0, 0]} name="Inflow" />
                 <Bar dataKey="outflow" fill="#ef4444" radius={[6, 6, 0, 0]} name="Outflow" />
@@ -168,7 +168,7 @@ export default function WorkingCapitalPage() {
                       color: "#f5f5f4",
                       fontSize: 13,
                     }}
-                    formatter={(value: number) => formatCurrency(value)}
+                    formatter={(value: any) => formatCurrency(Number(value))}
                   />
                 </PieChart>
               </ResponsiveContainer>

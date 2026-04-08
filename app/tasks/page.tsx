@@ -6,7 +6,7 @@ import { useData, type Task } from "@/lib/data-context";
 import { formatDate } from "@/lib/utils";
 import {
   SlideOver, Field, inputClass, selectClass,
-  btnPrimary, btnSecondary,
+  btnPrimary, btnSecondary, btnDanger,
 } from "@/components/ui/slide-over";
 
 const COLUMNS: Task["status"][] = ["Todo", "In Progress", "Review", "Done", "Blocked"];

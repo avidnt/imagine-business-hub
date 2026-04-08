@@ -285,7 +285,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     data: Partial<T>,
   ): string {
     const id = generateId();
-    const entity = { ...data, id, createdAt: new Date().toISOString() } as T;
+    const entity = { ...data, id, createdAt: new Date().toISOString() } as unknown as T;
 
     // Optimistic local update (instant UI feedback)
     setter((prev) => [...prev, entity]);
@@ -315,7 +315,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     // Persist to Supabase
     supabase
       .from(table)
-      .update(data)
+      .update(data as any)
       .eq("id", id)
       .then(({ error }) => {
         if (error) console.error(`[Supabase] Update ${table} failed:`, error);
