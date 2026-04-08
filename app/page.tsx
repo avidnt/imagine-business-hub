@@ -163,7 +163,7 @@ export default function Dashboard() {
                     color: "#f5f5f4",
                     fontSize: 13,
                   }}
-                  formatter={(value: number) => formatCurrency(value)}
+                  formatter={(value: any) => formatCurrency(Number(value))}
                 />
                 <Area
                   type="monotone"
