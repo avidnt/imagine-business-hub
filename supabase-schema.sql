@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS invoices (
   subtotal          NUMERIC DEFAULT 0,
   "gstPercent"      NUMERIC DEFAULT 18,
   "gstAmount"       NUMERIC DEFAULT 0,
+  discount          NUMERIC DEFAULT 0,
   total             NUMERIC DEFAULT 0,
   status            TEXT DEFAULT 'Draft',
   "paymentDate"     TEXT DEFAULT '',

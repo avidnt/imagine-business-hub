@@ -97,7 +97,13 @@ export type Proposal = {
   createdAt: string;
 };
 
-export type InvoiceItem = { description: string; amount: number };
+export type InvoiceItem = { 
+  name: string;
+  description?: string; 
+  quantity: number;
+  rate: number;
+  amount: number; 
+};
 
 export type Invoice = {
   id: string;
@@ -111,6 +117,7 @@ export type Invoice = {
   subtotal: number;
   gstPercent: number;
   gstAmount: number;
+  discount: number;
   total: number;
   status: "Draft" | "Sent" | "Paid" | "Overdue";
   paymentDate: string;
@@ -262,10 +269,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks, tasksLoaded] = useSupabaseState<Task>("tasks");
   const [proposals, setProposals, proposalsLoaded] =
     useSupabaseState<Proposal>("proposals");
-  const [invoices, setInvoices, invoicesLoaded] =
+  const [rawInvoices, setInvoices, invoicesLoaded] =
     useSupabaseState<Invoice>("invoices");
   const [expenses, setExpenses, expensesLoaded] =
     useSupabaseState<Expense>("expenses");
+
+  // Compute dynamic Overdue status for invoices
+  const invoices = React.useMemo(() => {
+    return rawInvoices.map((inv) => {
+      if (inv.status !== "Paid" && inv.dueDate) {
+        const isOverdue = new Date() > new Date(inv.dueDate);
+        if (isOverdue && inv.status !== "Overdue") {
+          return { ...inv, status: "Overdue" } as Invoice;
+        }
+      }
+      return inv;
+    });
+  }, [rawInvoices]);
 
   const loading = !(
     clientsLoaded &&

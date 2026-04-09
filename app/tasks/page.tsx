@@ -66,7 +66,7 @@ export default function TasksPage() {
 
   return (
     <AppShell>
-      <div className="mb-8 flex flex-col gap-4 border-b border-stone-800 pb-6 md:flex-row md:items-end md:justify-between">
+      <div className="mb-4 flex flex-col gap-4 border-b border-stone-800 pb-5 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.25em] text-stone-500">Execution</p>
           <h2 className="mt-2 text-3xl font-semibold">Tasks</h2>
@@ -74,65 +74,75 @@ export default function TasksPage() {
             {tasks.filter((t) => t.status !== "Done").length} open · {tasks.filter((t) => t.status === "Done").length} completed
           </p>
         </div>
-        <div className="flex gap-3">
-          <div className="flex rounded-xl border border-stone-700 bg-stone-800 p-1 text-sm">
-            <button onClick={() => setView("board")} className={`rounded-lg px-3 py-1.5 transition ${view === "board" ? "bg-stone-700 text-white" : "text-stone-400"}`}>Board</button>
-            <button onClick={() => setView("list")} className={`rounded-lg px-3 py-1.5 transition ${view === "list" ? "bg-stone-700 text-white" : "text-stone-400"}`}>List</button>
+        
+        <div className="flex flex-col items-start gap-4 xl:items-end">
+          <div className="flex flex-wrap items-center gap-3">
+            <select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} className={`${selectClass} min-w-[140px] text-xs py-1.5`}>
+              <option value="All">All Projects</option>
+              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className={`${selectClass} min-w-[140px] text-xs py-1.5`}>
+              <option value="All">All Assignees</option>
+              {assignees.map((a) => <option key={a}>{a}</option>)}
+            </select>
+            <div className="flex rounded-lg border border-stone-700 bg-stone-800 p-1 text-xs">
+              <button onClick={() => setView("board")} className={`rounded-md px-3 py-1 transition ${view === "board" ? "bg-stone-700 text-white shadow-sm" : "text-stone-400"}`}>Board</button>
+              <button onClick={() => setView("list")} className={`rounded-md px-3 py-1 transition ${view === "list" ? "bg-stone-700 text-white shadow-sm" : "text-stone-400"}`}>List</button>
+            </div>
+            <button onClick={() => openNew()} className={`${btnPrimary} py-2 text-xs md:text-sm md:py-1.5`}>+ New Task</button>
           </div>
-          <button onClick={() => openNew()} className={btnPrimary}>+ New Task</button>
         </div>
-      </div>
-
-      <div className="mb-6 flex flex-wrap gap-3">
-        <select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} className={`${selectClass} max-w-[220px]`}>
-          <option value="All">All Projects</option>
-          {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-        <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className={`${selectClass} max-w-[180px]`}>
-          <option value="All">All Assignees</option>
-          {assignees.map((a) => <option key={a}>{a}</option>)}
-        </select>
       </div>
 
       {/* Kanban Board */}
       {view === "board" && (
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {COLUMNS.map((col) => {
-            const colTasks = filtered.filter((t) => t.status === col);
-            return (
-              <div key={col} className={`min-w-[260px] flex-1 rounded-2xl border-t-2 ${columnColors[col]} bg-stone-900/60 p-3`}>
-                <div className="mb-3 flex items-center justify-between px-1">
-                  <h4 className="text-sm font-semibold text-stone-300">{col}</h4>
-                  <span className="rounded-full bg-stone-800 px-2 py-0.5 text-xs text-stone-400">{colTasks.length}</span>
-                </div>
-                <div className="space-y-2">
-                  {colTasks.map((t) => (
-                    <div
-                      key={t.id}
-                      onClick={() => openEdit(t)}
-                      className="cursor-pointer rounded-xl border border-stone-800 bg-stone-950/70 p-3 transition hover:border-stone-700 hover:shadow-md"
-                    >
-                      <p className="text-sm font-medium">{t.title}</p>
-                      <p className="mt-1 text-xs text-stone-500">{getProjectName(t.projectId)}</p>
-                      <div className="mt-2 flex items-center justify-between">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${priorityColors[t.priority] ?? ""}`}>{t.priority}</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] text-stone-500">{t.assignee}</span>
-                          {t.dueDate && <span className="text-[10px] text-stone-600">· {formatDate(t.dueDate)}</span>}
+        <div className="w-full overflow-x-auto pb-4 custom-scrollbar">
+          {/* Board Container */}
+          <div className="flex gap-4 md:gap-5 w-max items-start">
+            {COLUMNS.map((col) => {
+              const colTasks = filtered.filter((t) => t.status === col);
+              return (
+                <div 
+                  key={col} 
+                  className={`flex flex-col shrink-0 w-[85vw] sm:w-[280px] md:w-[300px] h-[calc(100vh-210px)] max-h-[800px] rounded-3xl border-t-2 ${columnColors[col]} bg-stone-900/60 p-4 shadow-sm transition-all`}
+                >
+                  <div className="mb-4 flex items-center justify-between px-1 shrink-0">
+                    <h4 className="text-base font-semibold text-stone-200">{col}</h4>
+                    <span className="rounded-full bg-stone-950 px-2.5 py-1 text-xs font-medium text-stone-400 shadow-sm">
+                      {colTasks.length}
+                    </span>
+                  </div>
+                  <div className="flex-1 overflow-y-auto space-y-3 pr-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-stone-800 [&::-webkit-scrollbar-thumb]:rounded-full">
+                    {colTasks.map((t) => (
+                      <div
+                        key={t.id}
+                        onClick={() => openEdit(t)}
+                        className="cursor-pointer rounded-2xl border border-stone-800 bg-stone-950/80 p-4 transition-all hover:border-stone-700 hover:shadow-lg"
+                      >
+                        <p className="text-sm font-medium leading-relaxed text-stone-100">{t.title}</p>
+                        <p className="mt-1.5 text-xs text-stone-500">{getProjectName(t.projectId)}</p>
+                        <div className="mt-3 flex items-center justify-between border-t border-stone-800/50 pt-3">
+                          <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wider ${priorityColors[t.priority] ?? ""}`}>
+                            {t.priority}
+                          </span>
+                          <div className="flex items-center gap-1.5 font-medium shrink-0">
+                            {t.dueDate && <span className="text-[10px] text-stone-500">{formatDate(t.dueDate)}</span>}
+                            <span className="text-[10px] text-stone-400">· {t.assignee}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                  <button
-                    onClick={() => openNew(col)}
-                    className="w-full rounded-xl border border-dashed border-stone-800 p-2 text-xs text-stone-500 transition hover:border-stone-600 hover:text-stone-400"
-                  >
-                    + Add Task
-                  </button>
+                    ))}
+                    <button
+                      onClick={() => openNew(col)}
+                      className="mt-2 w-full rounded-2xl border border-dashed border-stone-800 p-3 text-sm font-medium text-stone-500 transition hover:border-stone-600 hover:text-stone-300 hover:bg-stone-800/50 shrink-0"
+                    >
+                      + Add Task
+                    </button>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
 

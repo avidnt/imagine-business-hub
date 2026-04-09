@@ -126,7 +126,7 @@ export function AppShell({ children }: AppShellProps) {
         )}
 
         {/* Main content */}
-        <section className="flex-1 p-4 pt-20 lg:p-10 lg:pt-10">
+        <section className="flex-1 min-w-0 p-4 pt-20 lg:p-10 lg:pt-10 overflow-x-hidden">
           {children}
         </section>
       </div>
