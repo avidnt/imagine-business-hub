@@ -14,6 +14,7 @@ const COLUMNS: Task["status"][] = ["Todo", "In Progress", "Review", "Done", "Blo
 const emptyForm = (): Partial<Task> => ({
   projectId: "", deliverableId: "", title: "", assignee: "",
   priority: "Medium", dueDate: "", status: "Todo", notes: "",
+  progressTotal: 0, progressCompleted: 0
 });
 
 export default function TasksPage() {
@@ -38,7 +39,12 @@ export default function TasksPage() {
     setEditId(null); setShowForm(true);
   };
   const openEdit = (t: Task) => {
-    setForm({ projectId: t.projectId, deliverableId: t.deliverableId, title: t.title, assignee: t.assignee, priority: t.priority, dueDate: t.dueDate, status: t.status, notes: t.notes });
+    setForm({ 
+      projectId: t.projectId, deliverableId: t.deliverableId, title: t.title, 
+      assignee: t.assignee, priority: t.priority, dueDate: t.dueDate, 
+      status: t.status, notes: t.notes,
+      progressTotal: t.progressTotal, progressCompleted: t.progressCompleted
+    });
     setEditId(t.id); setShowForm(true);
   };
   const handleSave = () => {
@@ -47,7 +53,7 @@ export default function TasksPage() {
     else addTask(form);
     setShowForm(false);
   };
-  const set = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
+  const set = (k: string, v: any) => setForm((p) => ({ ...p, [k]: v }));
 
   const priorityColors: Record<string, string> = {
     Urgent: "bg-rose-500/15 text-rose-400",
@@ -62,6 +68,16 @@ export default function TasksPage() {
     Review: "border-sky-500/40",
     Done: "border-emerald-500/40",
     Blocked: "border-rose-500/40",
+  };
+
+  const updateProgress = (t: Task, increment: boolean) => {
+    const current = t.progressCompleted || 0;
+    const total = t.progressTotal || 0;
+    const next = increment ? Math.min(total, current + 1) : Math.max(0, current - 1);
+    updateTask(t.id, { 
+      progressCompleted: next,
+      status: next === total ? "Done" : next > 0 ? "In Progress" : "Todo"
+    });
   };
 
   return (
@@ -97,7 +113,6 @@ export default function TasksPage() {
       {/* Kanban Board */}
       {view === "board" && (
         <div className="w-full overflow-x-auto pb-4 custom-scrollbar">
-          {/* Board Container */}
           <div className="flex gap-4 md:gap-5 w-max items-start">
             {COLUMNS.map((col) => {
               const colTasks = filtered.filter((t) => t.status === col);
@@ -112,23 +127,40 @@ export default function TasksPage() {
                       {colTasks.length}
                     </span>
                   </div>
-                  <div className="flex-1 overflow-y-auto space-y-3 pr-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-stone-800 [&::-webkit-scrollbar-thumb]:rounded-full">
+                  <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
                     {colTasks.map((t) => (
                       <div
                         key={t.id}
-                        onClick={() => openEdit(t)}
-                        className="cursor-pointer rounded-2xl border border-stone-800 bg-stone-950/80 p-4 transition-all hover:border-stone-700 hover:shadow-lg"
+                        className="group rounded-2xl border border-stone-800 bg-stone-950/80 p-4 transition-all hover:border-stone-700 hover:shadow-lg"
                       >
-                        <p className="text-sm font-medium leading-relaxed text-stone-100">{t.title}</p>
-                        <p className="mt-1.5 text-xs text-stone-500">{getProjectName(t.projectId)}</p>
-                        <div className="mt-3 flex items-center justify-between border-t border-stone-800/50 pt-3">
+                        <div className="cursor-pointer" onClick={() => openEdit(t)}>
+                          <p className="text-sm font-medium leading-relaxed text-stone-100">{t.title}</p>
+                          <p className="mt-1.5 text-xs text-stone-500">{getProjectName(t.projectId)}</p>
+                        </div>
+                        
+                        {t.progressTotal && t.progressTotal > 0 ? (
+                          <div className="mt-3 space-y-2 border-t border-stone-800/50 pt-3">
+                            <div className="flex items-center justify-between text-[10px] text-stone-400">
+                              <span>Progress: {t.progressCompleted}/{t.progressTotal}</span>
+                              <div className="flex gap-1">
+                                <button onClick={(e) => { e.stopPropagation(); updateProgress(t, false); }} className="h-5 w-5 rounded bg-stone-800 hover:bg-stone-700">-</button>
+                                <button onClick={(e) => { e.stopPropagation(); updateProgress(t, true); }} className="h-5 w-5 rounded bg-stone-800 hover:bg-stone-700">+</button>
+                              </div>
+                            </div>
+                            <div className="h-1 w-full rounded-full bg-stone-800">
+                              <div 
+                                className="h-1 rounded-full bg-amber-500 transition-all" 
+                                style={{ width: `${((t.progressCompleted || 0) / t.progressTotal) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                        ) : null}
+
+                        <div className="mt-3 flex items-center justify-between">
                           <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wider ${priorityColors[t.priority] ?? ""}`}>
                             {t.priority}
                           </span>
-                          <div className="flex items-center gap-1.5 font-medium shrink-0">
-                            {t.dueDate && <span className="text-[10px] text-stone-500">{formatDate(t.dueDate)}</span>}
-                            <span className="text-[10px] text-stone-400">· {t.assignee}</span>
-                          </div>
+                          <span className="text-[10px] text-stone-500">{t.assignee || "Unassigned"}</span>
                         </div>
                       </div>
                     ))}
@@ -156,7 +188,7 @@ export default function TasksPage() {
                 <th className="p-4 font-medium">Project</th>
                 <th className="p-4 font-medium">Assignee</th>
                 <th className="p-4 font-medium">Priority</th>
-                <th className="p-4 font-medium">Due</th>
+                <th className="p-4 font-medium">Progress</th>
                 <th className="p-4 font-medium">Status</th>
                 <th className="p-4 font-medium"></th>
               </tr>
@@ -168,7 +200,9 @@ export default function TasksPage() {
                   <td className="p-4 text-stone-400">{getProjectName(t.projectId)}</td>
                   <td className="p-4 text-stone-400">{t.assignee}</td>
                   <td className="p-4"><span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${priorityColors[t.priority] ?? ""}`}>{t.priority}</span></td>
-                  <td className="p-4 text-stone-400">{formatDate(t.dueDate)}</td>
+                  <td className="p-4 text-stone-400">
+                    {t.progressTotal ? `${t.progressCompleted}/${t.progressTotal}` : "—"}
+                  </td>
                   <td className="p-4">
                     <select
                       value={t.status}
@@ -181,14 +215,12 @@ export default function TasksPage() {
                   <td className="p-4">
                     <div className="flex gap-2">
                       <button onClick={() => openEdit(t)} className="rounded-lg bg-stone-800 px-3 py-1.5 text-xs text-stone-300 hover:bg-stone-700">Edit</button>
-                      <button onClick={() => { if (confirm("Delete?")) deleteTask(t.id); }} className="rounded-lg bg-rose-500/10 px-3 py-1.5 text-xs text-rose-400 hover:bg-rose-500/20">Delete</button>
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {filtered.length === 0 && <div className="py-12 text-center text-stone-500">No tasks found</div>}
         </div>
       )}
 
@@ -204,7 +236,7 @@ export default function TasksPage() {
           <Field label="Deliverable">
             <select className={selectClass} value={form.deliverableId ?? ""} onChange={(e) => set("deliverableId", e.target.value)}>
               <option value="">Select deliverable…</option>
-              {deliverables.filter((d) => !form.projectId || d.projectId === form.projectId).map((d) => <option key={d.id} value={d.id}>{d.type} ({d.unit})</option>)}
+              {deliverables.filter((d) => !form.projectId || d.projectId === form.projectId).map((d) => <option key={d.id} value={d.id}>{d.serviceName} ({d.totalQuantity})</option>)}
             </select>
           </Field>
           <div className="grid grid-cols-2 gap-4">
@@ -222,6 +254,10 @@ export default function TasksPage() {
                 {COLUMNS.map((s) => <option key={s}>{s}</option>)}
               </select>
             </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Progress Completed"><input className={inputClass} type="number" value={form.progressCompleted ?? 0} onChange={(e) => set("progressCompleted", Number(e.target.value))} /></Field>
+            <Field label="Progress Total"><input className={inputClass} type="number" value={form.progressTotal ?? 0} onChange={(e) => set("progressTotal", Number(e.target.value))} /></Field>
           </div>
           <Field label="Notes"><textarea className={`${inputClass} min-h-[80px]`} value={form.notes ?? ""} onChange={(e) => set("notes", e.target.value)} /></Field>
           <div className="flex gap-3 pt-4">

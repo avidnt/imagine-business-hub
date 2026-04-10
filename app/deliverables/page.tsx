@@ -9,8 +9,13 @@ import {
 } from "@/components/ui/slide-over";
 
 const emptyForm = (): Partial<Deliverable> => ({
-  projectId: "", type: "", quantityPlanned: 0, quantityCompleted: 0,
-  unit: "Reels", dueCycle: "", status: "Planned", notes: "",
+  projectId: "",
+  serviceName: "",
+  totalQuantity: 0,
+  completedQuantity: 0,
+  type: "One-Time",
+  status: "Planned",
+  notes: "",
 });
 
 export default function DeliverablesPage() {
@@ -23,18 +28,28 @@ export default function DeliverablesPage() {
 
   const filtered = deliverables.filter((d) => {
     const q = search.toLowerCase();
-    const matchSearch = d.type.toLowerCase().includes(q) || getProjectName(d.projectId).toLowerCase().includes(q);
+    const matchSearch =
+      (d.serviceName || "").toLowerCase().includes(q) ||
+      getProjectName(d.projectId).toLowerCase().includes(q);
     const matchProject = projectFilter === "All" || d.projectId === projectFilter;
     return matchSearch && matchProject;
   });
 
   const openNew = () => { setForm(emptyForm()); setEditId(null); setShowForm(true); };
   const openEdit = (d: Deliverable) => {
-    setForm({ projectId: d.projectId, type: d.type, quantityPlanned: d.quantityPlanned, quantityCompleted: d.quantityCompleted, unit: d.unit, dueCycle: d.dueCycle, status: d.status, notes: d.notes });
+    setForm({
+      projectId: d.projectId,
+      serviceName: d.serviceName,
+      totalQuantity: d.totalQuantity,
+      completedQuantity: d.completedQuantity,
+      type: d.type,
+      status: d.status,
+      notes: d.notes,
+    });
     setEditId(d.id); setShowForm(true);
   };
   const handleSave = () => {
-    if (!form.type || !form.projectId) return;
+    if (!form.serviceName || !form.projectId) return;
     if (editId) updateDeliverable(editId, form);
     else addDeliverable(form);
     setShowForm(false);
@@ -82,13 +97,13 @@ export default function DeliverablesPage() {
           </thead>
           <tbody>
             {filtered.map((d) => {
-              const pct = d.quantityPlanned > 0 ? Math.round((d.quantityCompleted / d.quantityPlanned) * 100) : 0;
+              const pct = d.totalQuantity > 0 ? Math.round((d.completedQuantity / d.totalQuantity) * 100) : 0;
               const project = projects.find((p) => p.id === d.projectId);
               return (
                 <tr key={d.id} className="border-b border-stone-800/50 transition hover:bg-stone-800/30">
                   <td className="p-4">
-                    <p className="font-medium">{d.type}</p>
-                    <p className="text-xs text-stone-500">{d.unit}</p>
+                    <p className="font-medium">{d.serviceName}</p>
+                    <p className="text-xs text-stone-500">{d.type}</p>
                   </td>
                   <td className="p-4">
                     <p>{getProjectName(d.projectId)}</p>
@@ -99,10 +114,10 @@ export default function DeliverablesPage() {
                       <div className="h-1.5 w-24 rounded-full bg-stone-800">
                         <div className={`h-1.5 rounded-full transition-all ${pct >= 100 ? "bg-emerald-500" : "bg-gradient-to-r from-amber-500 to-orange-500"}`} style={{ width: `${Math.min(pct, 100)}%` }} />
                       </div>
-                      <span className="text-xs text-stone-400">{d.quantityCompleted}/{d.quantityPlanned}</span>
+                      <span className="text-xs text-stone-400">{d.completedQuantity}/{d.totalQuantity}</span>
                     </div>
                   </td>
-                  <td className="p-4 text-stone-400">{d.dueCycle}</td>
+                  <td className="p-4 text-stone-400">{d.type}</td>
                   <td className="p-4">
                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusColors[d.status] ?? ""}`}>{d.status}</span>
                   </td>
@@ -130,19 +145,16 @@ export default function DeliverablesPage() {
               {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </Field>
-          <Field label="Deliverable Type"><input className={inputClass} value={form.type ?? ""} onChange={(e) => set("type", e.target.value)} placeholder="e.g. Monthly Reels" /></Field>
+          <Field label="Service Name"><input className={inputClass} value={form.serviceName ?? ""} onChange={(e) => set("serviceName", e.target.value)} placeholder="e.g. Story Reels" /></Field>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Planned Qty"><input className={inputClass} type="number" value={form.quantityPlanned ?? 0} onChange={(e) => set("quantityPlanned", Number(e.target.value))} /></Field>
-            <Field label="Completed Qty"><input className={inputClass} type="number" value={form.quantityCompleted ?? 0} onChange={(e) => set("quantityCompleted", Number(e.target.value))} /></Field>
+            <Field label="Planned Qty"><input className={inputClass} type="number" value={form.totalQuantity ?? 0} onChange={(e) => set("totalQuantity", Number(e.target.value))} /></Field>
+            <Field label="Completed Qty"><input className={inputClass} type="number" value={form.completedQuantity ?? 0} onChange={(e) => set("completedQuantity", Number(e.target.value))} /></Field>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Unit">
-              <select className={selectClass} value={form.unit ?? "Reels"} onChange={(e) => set("unit", e.target.value)}>
-                {["Reels", "Posts", "Stories", "Designs", "Edits", "Other"].map((u) => <option key={u}>{u}</option>)}
-              </select>
-            </Field>
-            <Field label="Due Cycle"><input className={inputClass} value={form.dueCycle ?? ""} onChange={(e) => set("dueCycle", e.target.value)} placeholder="e.g. April 2026" /></Field>
-          </div>
+          <Field label="Type">
+            <select className={selectClass} value={form.type ?? "One-Time"} onChange={(e) => set("type", e.target.value)}>
+              {["Monthly", "One-Time"].map((t) => <option key={t}>{t}</option>)}
+            </select>
+          </Field>
           <Field label="Status">
             <select className={selectClass} value={form.status ?? "Planned"} onChange={(e) => set("status", e.target.value)}>
               {["Planned", "In Progress", "Blocked", "Completed"].map((s) => <option key={s}>{s}</option>)}

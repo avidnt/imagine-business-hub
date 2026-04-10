@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AppShell } from "@/components/app-shell";
-import { useData, type Project } from "@/lib/data-context";
+import { useData, type Project, type Deliverable, type Task } from "@/lib/data-context";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   SlideOver, Field, inputClass, selectClass,
@@ -17,7 +17,7 @@ const emptyForm = (): Partial<Project> => ({
 export default function ProjectsPage() {
   const {
     projects, addProject, updateProject, deleteProject,
-    clients, deliverables, getClientName,
+    clients, deliverables, getClientName, tasks, updateTask
   } = useData();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("All");
@@ -25,6 +25,7 @@ export default function ProjectsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<Project>>(emptyForm());
+  const [showDetail, setShowDetail] = useState<string | null>(null);
 
   const filtered = projects.filter((p) => {
     const q = search.toLowerCase();
@@ -53,6 +54,20 @@ export default function ProjectsPage() {
     "Review": "bg-sky-400/15 text-sky-400",
     "Completed": "bg-emerald-400/15 text-emerald-400",
     "On Hold": "bg-rose-400/15 text-rose-400",
+  };
+
+  const detailProject = showDetail ? projects.find(p => p.id === showDetail) : null;
+  const projectDeliverables = detailProject ? deliverables.filter(d => d.projectId === detailProject.id) : [];
+  const projectTasks = detailProject ? tasks.filter(t => t.projectId === detailProject.id) : [];
+
+  const updateTaskProgress = (task: Task, increment: boolean) => {
+    const current = task.progressCompleted || 0;
+    const total = task.progressTotal || 0;
+    const next = increment ? Math.min(total, current + 1) : Math.max(0, current - 1);
+    updateTask(task.id, { 
+      progressCompleted: next,
+      status: next === total ? "Done" : next > 0 ? "In Progress" : "Todo"
+    });
   };
 
   return (
@@ -90,15 +105,16 @@ export default function ProjectsPage() {
       <div className="space-y-4">
         {filtered.map((p, i) => {
           const projDelivs = deliverables.filter((d) => d.projectId === p.id);
-          const totalPlanned = projDelivs.reduce((s, d) => s + d.quantityPlanned, 0);
-          const totalDone = projDelivs.reduce((s, d) => s + d.quantityCompleted, 0);
+          const totalPlanned = projDelivs.reduce((s, d) => s + (d.totalQuantity || 0), 0);
+          const totalDone = projDelivs.reduce((s, d) => s + (d.completedQuantity || 0), 0);
           const pct = totalPlanned > 0 ? Math.round((totalDone / totalPlanned) * 100) : 0;
 
           return (
             <div
               key={p.id}
-              className="group rounded-2xl border border-stone-800 bg-stone-900 p-5 transition-all hover:border-stone-700 hover:shadow-lg animate-[slideUp_0.3s_ease-out]"
+              className="group cursor-pointer rounded-2xl border border-stone-800 bg-stone-900 p-5 transition-all hover:border-stone-700 hover:shadow-lg animate-[slideUp_0.3s_ease-out]"
               style={{ animationDelay: `${i * 40}ms`, animationFillMode: "both" }}
+              onClick={() => setShowDetail(p.id)}
             >
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div className="min-w-0 flex-1">
@@ -137,22 +153,79 @@ export default function ProjectsPage() {
               )}
 
               {p.notes && <p className="mt-3 text-sm text-stone-500 line-clamp-1">{p.notes}</p>}
-
-              <div className="mt-4 flex gap-2 opacity-0 transition group-hover:opacity-100">
-                <button onClick={() => openEdit(p)} className="rounded-lg bg-stone-800 px-3 py-1.5 text-xs text-stone-300 hover:bg-stone-700">Edit</button>
-                <button onClick={() => { if (confirm("Delete?")) deleteProject(p.id); }} className="rounded-lg bg-rose-500/10 px-3 py-1.5 text-xs text-rose-400 hover:bg-rose-500/20">Delete</button>
-              </div>
             </div>
           );
         })}
       </div>
 
-      {filtered.length === 0 && (
-        <div className="py-16 text-center">
-          <p className="text-lg text-stone-500">No projects found</p>
-          <button onClick={openNew} className={`${btnPrimary} mt-4`}>Create your first project</button>
-        </div>
-      )}
+      {/* Detail SlideOver */}
+      <SlideOver open={!!showDetail} onClose={() => setShowDetail(null)} title="Project Details" wide>
+        {detailProject && (
+          <div className="space-y-8">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-2xl font-bold">{detailProject.name}</h3>
+                <p className="text-stone-400">{getClientName(detailProject.clientId)} · {detailProject.type}</p>
+              </div>
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusColors[detailProject.status] ?? ""}`}>
+                {detailProject.status}
+              </span>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="rounded-2xl border border-stone-800 bg-stone-950/60 p-5">
+                <h4 className="mb-4 text-sm font-semibold uppercase tracking-wider text-stone-500">Deliverables</h4>
+                <div className="space-y-4">
+                  {projectDeliverables.length > 0 ? projectDeliverables.map(d => (
+                    <div key={d.id} className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium">{d.serviceName}</span>
+                        <span className="text-stone-400">{d.completedQuantity} / {d.totalQuantity}</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-stone-800">
+                        <div 
+                          className="h-1.5 rounded-full bg-amber-500" 
+                          style={{ width: `${(d.completedQuantity / d.totalQuantity) * 100}%` }} 
+                        />
+                      </div>
+                    </div>
+                  )) : <p className="text-sm text-stone-500">No deliverables defined.</p>}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-stone-800 bg-stone-950/60 p-5">
+                <h4 className="mb-4 text-sm font-semibold uppercase tracking-wider text-stone-500">Service Tasks</h4>
+                <div className="space-y-3">
+                  {projectTasks.length > 0 ? projectTasks.map(t => (
+                    <div key={t.id} className="rounded-xl bg-stone-900/50 p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">{t.title}</span>
+                        <span className={`text-[10px] uppercase px-2 py-0.5 rounded-full ${
+                          t.status === "Done" ? "bg-emerald-400/15 text-emerald-400" : "bg-amber-400/15 text-amber-400"
+                        }`}>{t.status}</span>
+                      </div>
+                      {t.progressTotal && (
+                        <div className="mt-3 flex items-center gap-3">
+                          <div className="flex-1 text-xs text-stone-400">Progress: {t.progressCompleted} / {t.progressTotal}</div>
+                          <div className="flex gap-1">
+                            <button onClick={() => updateTaskProgress(t, false)} className="h-6 w-6 rounded bg-stone-800 text-xs hover:bg-stone-700">-</button>
+                            <button onClick={() => updateTaskProgress(t, true)} className="h-6 w-6 rounded bg-stone-800 text-xs hover:bg-stone-700">+</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )) : <p className="text-sm text-stone-500">No tasks generated.</p>}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => { setShowDetail(null); openEdit(detailProject); }} className={btnSecondary}>Edit Project</button>
+              <button onClick={() => { if (confirm("Delete?")) { deleteProject(detailProject.id); setShowDetail(null); } }} className={btnDanger}>Delete</button>
+            </div>
+          </div>
+        )}
+      </SlideOver>
 
       {/* Form */}
       <SlideOver open={showForm} onClose={() => setShowForm(false)} title={editId ? "Edit Project" : "New Project"}>

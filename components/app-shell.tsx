@@ -8,10 +8,13 @@ type NavItem = { label: string; href: string; icon: string };
 
 const navItems: NavItem[] = [
   { label: "Dashboard", href: "/", icon: "◎" },
+  { label: "Services", href: "/services", icon: "❖" },
   { label: "Clients", href: "/clients", icon: "◇" },
   { label: "Projects", href: "/projects", icon: "▦" },
   { label: "Deliverables", href: "/deliverables", icon: "◈" },
   { label: "Tasks", href: "/tasks", icon: "☰" },
+
+
   { label: "Proposals", href: "/proposals", icon: "◪" },
   { label: "Invoices", href: "/invoices", icon: "▤" },
   { label: "Expenses", href: "/expenses", icon: "◉" },

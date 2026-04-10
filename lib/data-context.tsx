@@ -53,11 +53,10 @@ export type Project = {
 export type Deliverable = {
   id: string;
   projectId: string;
-  type: string;
-  quantityPlanned: number;
-  quantityCompleted: number;
-  unit: string;
-  dueCycle: string;
+  serviceName?: string;
+  totalQuantity: number;
+  completedQuantity: number;
+  type: "Monthly" | "One-Time";
   status: "Planned" | "In Progress" | "Blocked" | "Completed";
   notes: string;
 };
@@ -72,14 +71,28 @@ export type Task = {
   dueDate: string;
   status: "Todo" | "In Progress" | "Review" | "Done" | "Blocked";
   notes: string;
+  progressTotal?: number;
+  progressCompleted?: number;
+};
+
+export type Service = {
+  id: string;
+  name: string;
+  type: "Monthly" | "One-Time";
+  defaultQuantity: number;
+  price: number;
+  taskTemplate: { tasks: string[] };
+  createdAt: string;
 };
 
 export type ProposalItem = {
+  serviceId?: string;
   description: string;
   quantity: number;
   unit: string;
   rate: number;
   amount: number;
+  type: "Monthly" | "One-Time";
 };
 
 export type Proposal = {
@@ -92,17 +105,28 @@ export type Proposal = {
   items: ProposalItem[];
   totalAmount: number;
   terms: string;
-  status: "Draft" | "Sent" | "Approved" | "Rejected";
+  status: "Draft" | "Sent" | "Accepted" | "Rejected";
   notes: string;
   createdAt: string;
 };
 
-export type InvoiceItem = { 
+export type ProposalService = {
+  id: string;
+  proposalId: string;
+  serviceId: string;
+  serviceName: string;
+  quantity: number;
+  price: number;
+  type: "Monthly" | "One-Time";
+  createdAt: string;
+};
+
+export type InvoiceItem = {
   name: string;
-  description?: string; 
+  description?: string;
   quantity: number;
   rate: number;
-  amount: number; 
+  amount: number;
 };
 
 export type Invoice = {
@@ -239,6 +263,11 @@ type DataContextType = {
   updateProposal: (id: string, d: Partial<Proposal>) => void;
   deleteProposal: (id: string) => void;
 
+  proposalServices: ProposalService[];
+  addProposalService: (d: Partial<ProposalService>) => string;
+  updateProposalService: (id: string, d: Partial<ProposalService>) => void;
+  deleteProposalService: (id: string) => void;
+
   invoices: Invoice[];
   addInvoice: (d: Partial<Invoice>) => string;
   updateInvoice: (id: string, d: Partial<Invoice>) => void;
@@ -248,6 +277,11 @@ type DataContextType = {
   addExpense: (d: Partial<Expense>) => string;
   updateExpense: (id: string, d: Partial<Expense>) => void;
   deleteExpense: (id: string) => void;
+
+  services: Service[];
+  addService: (d: Partial<Service>) => string;
+  updateService: (id: string, d: Partial<Service>) => void;
+  deleteService: (id: string) => void;
 
   getClientName: (id: string) => string;
   getProjectName: (id: string) => string;
@@ -269,10 +303,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks, tasksLoaded] = useSupabaseState<Task>("tasks");
   const [proposals, setProposals, proposalsLoaded] =
     useSupabaseState<Proposal>("proposals");
+  const [proposalServices, setProposalServices, proposalServicesLoaded] =
+    useSupabaseState<ProposalService>("proposal_services");
   const [rawInvoices, setInvoices, invoicesLoaded] =
     useSupabaseState<Invoice>("invoices");
   const [expenses, setExpenses, expensesLoaded] =
     useSupabaseState<Expense>("expenses");
+  const [services, setServices, servicesLoaded] =
+    useSupabaseState<Service>("services");
 
   // Compute dynamic Overdue status for invoices
   const invoices = React.useMemo(() => {
@@ -293,8 +331,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     deliverablesLoaded &&
     tasksLoaded &&
     proposalsLoaded &&
+    proposalServicesLoaded &&
     invoicesLoaded &&
-    expensesLoaded
+    expensesLoaded &&
+    servicesLoaded
   );
 
   /* ── generic helpers ─────────────────────────── */
@@ -313,7 +353,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     // Persist to Supabase (fire-and-forget)
     supabase
       .from(table)
-      .insert(entity)
+      .insert(entity as any)
       .then(({ error }) => {
         if (error) console.error(`[Supabase] Insert ${table} failed:`, error);
       });
@@ -340,6 +380,93 @@ export function DataProvider({ children }: { children: ReactNode }) {
       .then(({ error }) => {
         if (error) console.error(`[Supabase] Update ${table} failed:`, error);
       });
+  }
+
+  function syncProposalServicesForProposal(proposalId: string, items: ProposalItem[] = []) {
+    const selected = items
+      .filter((item) => !!item.serviceId)
+      .map((item) => ({
+        proposalId,
+        serviceId: item.serviceId!,
+        serviceName: item.description,
+        quantity: Number(item.quantity || 0),
+        price: Number(item.rate || 0),
+        type: item.type,
+      }));
+
+    const existing = proposalServices.filter((ps) => ps.proposalId === proposalId);
+
+    // remove old
+    for (const row of existing) {
+      setProposalServices((prev) => prev.filter((p) => p.id !== row.id));
+      supabase.from("proposal_services").delete().eq("id", row.id).then(({ error }) => {
+        if (error) console.error("[Supabase] Delete proposal_services failed:", error);
+      });
+    }
+
+    // insert latest
+    for (const row of selected) {
+      const id = generateId();
+      const entity: ProposalService = {
+        id,
+        createdAt: new Date().toISOString(),
+        ...row,
+      };
+      setProposalServices((prev) => [...prev, entity]);
+      supabase.from("proposal_services").insert(entity as any).then(({ error }) => {
+        if (error) console.error("[Supabase] Insert proposal_services failed:", error);
+      });
+    }
+  }
+
+  function runProposalAcceptanceAutomation(proposal: Proposal) {
+    const existingProject = projects.find((p) => p.proposalId === proposal.id);
+    if (existingProject) return;
+
+    const projectId = addEntity<Project>("projects", setProjects, {
+      name: `${clients.find((c) => c.id === proposal.clientId)?.name ?? "Client"} — ${proposal.proposalNumber}`,
+      clientId: proposal.clientId,
+      type: proposal.projectType === "Monthly Retainer" ? "Monthly" : "One-Time",
+      startDate: new Date().toISOString().slice(0, 10),
+      endDate: "",
+      owner: "",
+      status: "In Progress",
+      billingValue: proposal.totalAmount,
+      proposalId: proposal.id,
+      notes: `Auto-created from accepted proposal ${proposal.proposalNumber}`,
+    });
+
+    const serviceItems = proposal.items.filter((item) => item.serviceId);
+
+    serviceItems.forEach((item) => {
+      const deliverableId = addEntity<Deliverable>("deliverables", setDeliverables, {
+        projectId,
+        serviceName: item.description,
+        totalQuantity: item.quantity,
+        completedQuantity: 0,
+        type: item.type,
+        status: "Planned",
+        notes: `Generated from proposal ${proposal.proposalNumber}`,
+      });
+
+      const service = services.find((s) => s.id === item.serviceId);
+      const templateTasks = service?.taskTemplate?.tasks ?? [];
+
+      templateTasks.forEach((taskName) => {
+        addEntity<Task>("tasks", setTasks, {
+          projectId,
+          deliverableId,
+          title: taskName,
+          assignee: "",
+          priority: "Medium",
+          dueDate: "",
+          status: "Todo",
+          notes: `Generated from service template: ${service?.name ?? item.description}`,
+          progressTotal: item.quantity,
+          progressCompleted: 0,
+        });
+      });
+    });
   }
 
   function removeEntity<T extends { id: string }>(
@@ -386,9 +513,36 @@ export function DataProvider({ children }: { children: ReactNode }) {
     deleteTask: (id) => removeEntity("tasks", setTasks, id),
 
     proposals,
-    addProposal: (d) => addEntity("proposals", setProposals, d),
-    updateProposal: (id, d) => updateEntity("proposals", setProposals, id, d),
-    deleteProposal: (id) => removeEntity("proposals", setProposals, id),
+    addProposal: (d) => {
+      const id = addEntity("proposals", setProposals, d);
+      syncProposalServicesForProposal(id, d.items ?? []);
+      return id;
+    },
+    updateProposal: (id, d) => {
+      const previous = proposals.find((p) => p.id === id);
+      updateEntity("proposals", setProposals, id, d);
+
+      if (d.items) {
+        syncProposalServicesForProposal(id, d.items);
+      }
+
+      const nextStatus = d.status ?? previous?.status;
+      if (nextStatus === "Accepted" && previous?.status !== "Accepted" && previous) {
+        runProposalAcceptanceAutomation({ ...previous, ...d });
+      }
+    },
+    deleteProposal: (id) => {
+      removeEntity("proposals", setProposals, id);
+      proposalServices
+        .filter((ps) => ps.proposalId === id)
+        .forEach((ps) => removeEntity("proposal_services", setProposalServices, ps.id));
+    },
+
+    proposalServices,
+    addProposalService: (d) => addEntity("proposal_services", setProposalServices, d),
+    updateProposalService: (id, d) =>
+      updateEntity("proposal_services", setProposalServices, id, d),
+    deleteProposalService: (id) => removeEntity("proposal_services", setProposalServices, id),
 
     invoices,
     addInvoice: (d) => addEntity("invoices", setInvoices, d),
@@ -399,6 +553,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     addExpense: (d) => addEntity("expenses", setExpenses, d),
     updateExpense: (id, d) => updateEntity("expenses", setExpenses, id, d),
     deleteExpense: (id) => removeEntity("expenses", setExpenses, id),
+
+    services,
+    addService: (d) => addEntity("services", setServices, d),
+    updateService: (id, d) => updateEntity("services", setServices, id, d),
+    deleteService: (id) => removeEntity("services", setServices, id),
 
     getClientName: (id) => clients.find((c) => c.id === id)?.name ?? "—",
     getProjectName: (id) => projects.find((p) => p.id === id)?.name ?? "—",

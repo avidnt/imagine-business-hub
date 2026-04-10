@@ -38,7 +38,7 @@ export default function Dashboard() {
       end.setHours(23, 59, 59, 999);
       return { start, end };
     }
-    
+
     const now = new Date();
     if (dateFilter === "Today") {
       const start = new Date(now); start.setHours(0, 0, 0, 0);
@@ -50,8 +50,8 @@ export default function Dashboard() {
       const day = start.getDay() || 7;
       if (day !== 1) start.setHours(-24 * (day - 1), 0, 0, 0);
       else start.setHours(0, 0, 0, 0);
-      const end = new Date(start); 
-      end.setDate(end.getDate() + 6); 
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
       end.setHours(23, 59, 59, 999);
       return { start, end };
     }
@@ -73,7 +73,7 @@ export default function Dashboard() {
     return { start, end };
   }, [currentRange]);
 
-  const isWithinRange = (dateStr: string, range: {start: Date, end: Date}) => {
+  const isWithinRange = (dateStr: string, range: { start: Date, end: Date }) => {
     const d = new Date(dateStr);
     return d >= range.start && d <= range.end;
   };
@@ -91,7 +91,7 @@ export default function Dashboard() {
     const revenue = paid.reduce((s, i) => s + i.total, 0);
     const totalExp = expList.reduce((s, e) => s + e.amount, 0);
     const netProfit = revenue - totalExp;
-    
+
     const pending = invList.filter(i => i.status === "Sent" || i.status === "Overdue");
     const pendingAmount = pending.reduce((s, i) => s + i.total, 0);
     const overdue = invList.filter(i => i.status === "Overdue");
@@ -221,7 +221,7 @@ export default function Dashboard() {
   ];
 
   /* ───── CHARTS DATA ───── */
-  
+
   // 1. Area Chart (Daily/Monthly relative to current filter)
   const generateAreaChartData = () => {
     const diffDays = (currentRange.end.getTime() - currentRange.start.getTime()) / (1000 * 3600 * 24);
@@ -272,7 +272,7 @@ export default function Dashboard() {
     const endMonth = new Date(currentRange.end.getFullYear(), currentRange.end.getMonth(), 1);
     const current = new Date(endMonth);
     current.setMonth(current.getMonth() - 5); // 6 months total
-    
+
     const rangeStart = new Date(current);
     const rangeEnd = new Date(currentRange.end.getFullYear(), currentRange.end.getMonth() + 1, 0, 23, 59, 59, 999);
 
@@ -315,7 +315,7 @@ export default function Dashboard() {
     });
     return Array.from(map.entries())
       .map(([name, value]) => ({ name, value }))
-      .sort((a,b) => b.value - a.value);
+      .sort((a, b) => b.value - a.value);
   }, [filteredExpenses]);
 
   // 4. Breakdown - Revenue by Client
@@ -326,11 +326,11 @@ export default function Dashboard() {
     });
     return Array.from(map.entries())
       .map(([clientId, value]) => ({ name: getClientName(clientId), value }))
-      .sort((a,b) => b.value - a.value)
+      .sort((a, b) => b.value - a.value)
       .slice(0, 5); // top 5
   }, [filteredInvoices, getClientName]);
 
-  
+
   // Other Dashboard Logic
   const activeProjects = projects.filter((p) => p.status !== "Completed");
   const statusCounts = [
@@ -352,7 +352,7 @@ export default function Dashboard() {
   return (
     <AppShell>
       <div className="space-y-8">
-        
+
         {/* HEADER & GLOBAL FILTER */}
         <div className="flex flex-col gap-4 border-b border-stone-800 pb-6 xl:flex-row xl:items-end xl:justify-between">
           <div>
@@ -364,7 +364,7 @@ export default function Dashboard() {
               Business performance, financials, and project activity.
             </p>
           </div>
-          
+
           <div className="flex flex-col items-start gap-3 xl:items-end">
             <div className="flex flex-wrap items-center gap-2">
               {["Today", "This Week", "This Month", "This Year"].map((filter) => (
@@ -375,11 +375,10 @@ export default function Dashboard() {
                     setCustomStart("");
                     setCustomEnd("");
                   }}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                    dateFilter === filter
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${dateFilter === filter
                       ? "bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/30"
                       : "bg-stone-800/50 text-stone-400 hover:bg-stone-800 hover:text-stone-300"
-                  }`}
+                    }`}
                 >
                   {filter}
                 </button>
@@ -422,34 +421,31 @@ export default function Dashboard() {
               return (
                 <div
                   key={alert.id}
-                  className={`flex items-start gap-4 rounded-2xl border p-4 shadow-sm ${
-                    alert.type === "danger"
+                  className={`flex items-start gap-4 rounded-2xl border p-4 shadow-sm ${alert.type === "danger"
                       ? "border-rose-500/30 bg-rose-500/10"
                       : alert.type === "warning"
-                      ? "border-amber-500/30 bg-amber-500/10"
-                      : "border-sky-500/30 bg-sky-500/10"
-                  }`}
+                        ? "border-amber-500/30 bg-amber-500/10"
+                        : "border-sky-500/30 bg-sky-500/10"
+                    }`}
                 >
                   <div
-                    className={`mt-0.5 rounded-xl p-2.5 ${
-                      alert.type === "danger"
+                    className={`mt-0.5 rounded-xl p-2.5 ${alert.type === "danger"
                         ? "bg-rose-500/20 text-rose-400"
                         : alert.type === "warning"
-                        ? "bg-amber-500/20 text-amber-400"
-                        : "bg-sky-500/20 text-sky-400"
-                    }`}
+                          ? "bg-amber-500/20 text-amber-400"
+                          : "bg-sky-500/20 text-sky-400"
+                      }`}
                   >
                     <Icon className="h-5 w-5" />
                   </div>
                   <div>
                     <h4
-                      className={`font-semibold ${
-                        alert.type === "danger"
+                      className={`font-semibold ${alert.type === "danger"
                           ? "text-rose-400"
                           : alert.type === "warning"
-                          ? "text-amber-400"
-                          : "text-sky-400"
-                      }`}
+                            ? "text-amber-400"
+                            : "text-sky-400"
+                        }`}
                     >
                       {alert.title}
                     </h4>
@@ -547,17 +543,17 @@ export default function Dashboard() {
                 <BarChart data={monthlyTrendData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#292524" vertical={false} />
                   <XAxis dataKey="label" stroke="#78716c" fontSize={12} axisLine={false} tickLine={false} />
-                  <YAxis 
-                    stroke="#78716c" 
-                    fontSize={12} 
-                    tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} 
-                    axisLine={false} 
-                    tickLine={false} 
+                  <YAxis
+                    stroke="#78716c"
+                    fontSize={12}
+                    tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
+                    axisLine={false}
+                    tickLine={false}
                   />
-                  <RechartsTooltip 
-                    cursor={{fill: '#292524'}} 
-                    contentStyle={{ background: "#1c1917", border: "1px solid #44403c", borderRadius: 12, color: "#f5f5f4", fontSize: 13 }} 
-                    formatter={(value: any) => formatCurrency(Number(value))} 
+                  <RechartsTooltip
+                    cursor={{ fill: '#292524' }}
+                    contentStyle={{ background: "#1c1917", border: "1px solid #44403c", borderRadius: 12, color: "#f5f5f4", fontSize: 13 }}
+                    formatter={(value: any) => formatCurrency(Number(value))}
                   />
                   <Bar dataKey="revenue" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
                   <Bar dataKey="expenses" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={40} />
@@ -673,15 +669,14 @@ export default function Dashboard() {
                       </td>
                       <td className="py-3 pl-4">
                         <span
-                          className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
-                            inv.status === "Paid"
+                          className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${inv.status === "Paid"
                               ? "bg-emerald-400/15 text-emerald-400"
                               : inv.status === "Sent"
                                 ? "bg-sky-400/15 text-sky-400"
                                 : inv.status === "Overdue"
                                   ? "bg-rose-400/15 text-rose-400"
                                   : "bg-stone-700 text-stone-300"
-                          }`}
+                            }`}
                         >
                           {inv.status}
                         </span>
@@ -714,7 +709,7 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredExpenses.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5).map((exp) => (
+                  {filteredExpenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5).map((exp) => (
                     <tr
                       key={exp.id}
                       className="border-b border-stone-800/50 transition hover:bg-stone-800/30"
@@ -742,7 +737,7 @@ export default function Dashboard() {
 
         {/* OPERATIONS (Status, Active Projects, tasks) */}
         <div className="grid gap-6 lg:grid-cols-3">
-          
+
           {/* Project status pie */}
           <div className="rounded-3xl border border-stone-800 bg-stone-900 p-6">
             <h3 className="mb-1 text-lg font-semibold">Project Pipeline</h3>
@@ -808,10 +803,10 @@ export default function Dashboard() {
                   (d) => d.projectId === project.id,
                 );
                 const totalPlanned = projDeliverables.reduce(
-                  (s, d) => s + d.quantityPlanned, 0,
+                  (s, d) => s + d.totalQuantity, 0,
                 );
                 const totalDone = projDeliverables.reduce(
-                  (s, d) => s + d.quantityCompleted, 0,
+                  (s, d) => s + d.completedQuantity, 0,
                 );
                 const pct = totalPlanned > 0 ? Math.round((totalDone / totalPlanned) * 100) : 0;
                 return (
@@ -827,15 +822,14 @@ export default function Dashboard() {
                         </p>
                       </div>
                       <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-                          project.status === "In Progress"
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${project.status === "In Progress"
                             ? "bg-amber-400/15 text-amber-400"
                             : project.status === "Review"
                               ? "bg-sky-400/15 text-sky-400"
                               : project.status === "Planning"
                                 ? "bg-stone-700 text-stone-300"
                                 : "bg-emerald-400/15 text-emerald-400"
-                        }`}
+                          }`}
                       >
                         {project.status}
                       </span>
@@ -877,28 +871,26 @@ export default function Dashboard() {
                       </p>
                     </div>
                     <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-                        task.priority === "Urgent"
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${task.priority === "Urgent"
                           ? "bg-rose-500/15 text-rose-400"
                           : task.priority === "High"
                             ? "bg-amber-400/15 text-amber-400"
                             : "bg-stone-700 text-stone-300"
-                      }`}
+                        }`}
                     >
                       {task.priority}
                     </span>
                   </div>
                   <div className="mt-2 flex items-center gap-2">
                     <span
-                      className={`h-1.5 w-1.5 rounded-full ${
-                        task.status === "In Progress"
+                      className={`h-1.5 w-1.5 rounded-full ${task.status === "In Progress"
                           ? "bg-amber-400"
                           : task.status === "Todo"
                             ? "bg-stone-500"
                             : task.status === "Review"
                               ? "bg-sky-400"
                               : "bg-emerald-400"
-                      }`}
+                        }`}
                     />
                     <span className="text-[10px] text-stone-400 uppercase tracking-wider">{task.status}</span>
                   </div>

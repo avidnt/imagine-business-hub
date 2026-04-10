@@ -9,7 +9,7 @@ import {
   btnPrimary, btnSecondary, btnDanger,
 } from "@/components/ui/slide-over";
 
-const emptyItem = (): ProposalItem => ({ description: "", quantity: 1, unit: "unit", rate: 0, amount: 0 });
+const emptyItem = (): ProposalItem => ({ description: "", quantity: 1, unit: "unit", rate: 0, amount: 0, type: "One-Time" });
 const emptyForm = (): Partial<Proposal> => ({
   proposalNumber: "", clientId: "", date: new Date().toISOString().slice(0, 10),
   validUntil: "", projectType: "Monthly Retainer",
@@ -18,7 +18,15 @@ const emptyForm = (): Partial<Proposal> => ({
 });
 
 export default function ProposalsPage() {
-  const { proposals, addProposal, updateProposal, deleteProposal, clients, addProject, getClientName } = useData();
+  const {
+    proposals,
+    addProposal,
+    updateProposal,
+    deleteProposal,
+    clients,
+    getClientName,
+    services,
+  } = useData();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [showForm, setShowForm] = useState(false);
@@ -46,7 +54,7 @@ export default function ProposalsPage() {
 
   const recalcTotal = (items: ProposalItem[]) => items.reduce((s, i) => s + i.amount, 0);
 
-  const updateItem = (idx: number, field: keyof ProposalItem, value: string | number) => {
+  const updateItem = (idx: number, field: keyof ProposalItem, value: any) => {
     const items = [...(form.items ?? [])];
     const item = { ...items[idx], [field]: value };
     if (field === "quantity" || field === "rate") {
@@ -61,6 +69,18 @@ export default function ProposalsPage() {
     setForm((p) => ({ ...p, items, totalAmount: recalcTotal(items) }));
   };
 
+  const handleServiceSelect = (idx: number, serviceId: string) => {
+    const service = services.find(s => s.id === serviceId);
+    if (!service) return;
+
+    updateItem(idx, "serviceId", service.id);
+    updateItem(idx, "description", service.name);
+    updateItem(idx, "rate", service.price);
+    updateItem(idx, "quantity", service.defaultQuantity);
+    updateItem(idx, "type", service.type);
+    updateItem(idx, "unit", service.type === "Monthly" ? "month" : "unit");
+  };
+
   const handleSave = () => {
     if (!form.clientId || !form.proposalNumber) return;
     const total = recalcTotal(form.items ?? []);
@@ -70,23 +90,9 @@ export default function ProposalsPage() {
     setShowForm(false);
   };
 
-  const convertToProject = (proposal: Proposal) => {
-    if (proposal.status !== "Approved") {
-      updateProposal(proposal.id, { status: "Approved" });
-    }
-    addProject({
-      name: `${getClientName(proposal.clientId)} — ${proposal.projectType}`,
-      clientId: proposal.clientId,
-      type: proposal.projectType === "Monthly Retainer" ? "Monthly" : "One-Time",
-      startDate: new Date().toISOString().slice(0, 10),
-      endDate: "",
-      owner: "",
-      status: "Planning",
-      billingValue: proposal.totalAmount,
-      proposalId: proposal.id,
-      notes: `Converted from proposal ${proposal.proposalNumber}`,
-    });
-    alert("Project created from proposal!");
+  const acceptProposal = (proposal: Proposal) => {
+    updateProposal(proposal.id, { status: "Accepted" });
+    alert("Proposal accepted. Project, deliverables, and tasks were auto-generated.");
     setShowDetail(null);
   };
 
@@ -96,7 +102,7 @@ export default function ProposalsPage() {
   const statusColors: Record<string, string> = {
     Draft: "bg-stone-700 text-stone-300",
     Sent: "bg-sky-400/15 text-sky-400",
-    Approved: "bg-emerald-400/15 text-emerald-400",
+    Accepted: "bg-emerald-400/15 text-emerald-400",
     Rejected: "bg-rose-400/15 text-rose-400",
   };
 
@@ -106,7 +112,7 @@ export default function ProposalsPage() {
         <div>
           <p className="text-xs uppercase tracking-[0.25em] text-stone-500">Sales</p>
           <h2 className="mt-2 text-3xl font-semibold">Proposals</h2>
-          <p className="mt-2 text-sm text-stone-400">{proposals.length} proposals · {proposals.filter((p) => p.status === "Approved").length} approved</p>
+          <p className="mt-2 text-sm text-stone-400">{proposals.length} proposals · {proposals.filter((p) => p.status === "Accepted").length} accepted</p>
         </div>
         <button onClick={openNew} className={btnPrimary}>+ New Proposal</button>
       </div>
@@ -115,7 +121,7 @@ export default function ProposalsPage() {
         <input type="text" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} className={`${inputClass} max-w-sm`} />
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={`${selectClass} max-w-[160px]`}>
           <option value="All">All Status</option>
-          {["Draft", "Sent", "Approved", "Rejected"].map((s) => <option key={s}>{s}</option>)}
+          {["Draft", "Sent", "Accepted", "Rejected"].map((s) => <option key={s}>{s}</option>)}
         </select>
       </div>
 
@@ -166,7 +172,10 @@ export default function ProposalsPage() {
                 <tbody>
                   {detailProposal.items.map((item, idx) => (
                     <tr key={idx} className="border-b border-stone-800/50">
-                      <td className="py-2">{item.description}</td>
+                      <td className="py-2">
+                        <div className="font-medium">{item.description}</div>
+                        <div className="text-xs text-stone-500">{item.type}</div>
+                      </td>
                       <td className="py-2">{item.quantity} {item.unit}</td>
                       <td className="py-2">{formatCurrency(item.rate)}</td>
                       <td className="py-2 text-right font-medium">{formatCurrency(item.amount)}</td>
@@ -181,9 +190,9 @@ export default function ProposalsPage() {
             {detailProposal.notes && <p className="text-sm text-stone-400"><strong className="text-stone-300">Notes:</strong> {detailProposal.notes}</p>}
 
             <div className="flex flex-wrap gap-3">
-              {detailProposal.status !== "Approved" && (
-                <button onClick={() => convertToProject(detailProposal)} className={btnPrimary}>
-                  ✓ Approve &amp; Create Project
+              {detailProposal.status !== "Accepted" && (
+                <button onClick={() => acceptProposal(detailProposal)} className={btnPrimary}>
+                  ✓ Accept Proposal
                 </button>
               )}
               <button onClick={() => { setShowDetail(null); openEdit(detailProposal); }} className={btnSecondary}>Edit</button>
@@ -220,15 +229,29 @@ export default function ProposalsPage() {
 
           <div>
             <p className="mb-2 text-sm font-medium text-stone-400">Line Items</p>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {(form.items ?? []).map((item, idx) => (
-                <div key={idx} className="flex items-end gap-2 rounded-xl border border-stone-800 bg-stone-950/60 p-3">
-                  <Field label="Description"><input className={inputClass} value={item.description} onChange={(e) => updateItem(idx, "description", e.target.value)} /></Field>
-                  <Field label="Qty"><input className={`${inputClass} w-20`} type="number" value={item.quantity} onChange={(e) => updateItem(idx, "quantity", Number(e.target.value))} /></Field>
-                  <Field label="Unit"><input className={`${inputClass} w-20`} value={item.unit} onChange={(e) => updateItem(idx, "unit", e.target.value)} /></Field>
-                  <Field label="Rate"><input className={`${inputClass} w-24`} type="number" value={item.rate} onChange={(e) => updateItem(idx, "rate", Number(e.target.value))} /></Field>
-                  <div className="pb-0.5 text-sm font-semibold text-amber-400">{formatCurrency(item.amount)}</div>
-                  <button onClick={() => removeItem(idx)} className="pb-0.5 text-rose-400 hover:text-rose-300">✕</button>
+                <div key={idx} className="rounded-xl border border-stone-800 bg-stone-950/60 p-4">
+                  <div className="mb-3">
+                    <Field label="Select Service (Optional)">
+                      <select
+                        className={selectClass}
+                        value={item.serviceId ?? ""}
+                        onChange={(e) => handleServiceSelect(idx, e.target.value)}
+                      >
+                        <option value="">Custom Service...</option>
+                        {services.map(s => <option key={s.id} value={s.id}>{s.name} ({formatCurrency(s.price)})</option>)}
+                      </select>
+                    </Field>
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <div className="flex-1"><Field label="Description"><input className={inputClass} value={item.description} onChange={(e) => updateItem(idx, "description", e.target.value)} /></Field></div>
+                    <div className="w-20"><Field label="Qty"><input className={inputClass} type="number" value={item.quantity} onChange={(e) => updateItem(idx, "quantity", Number(e.target.value))} /></Field></div>
+                    <div className="w-20"><Field label="Unit"><input className={inputClass} value={item.unit} onChange={(e) => updateItem(idx, "unit", e.target.value)} /></Field></div>
+                    <div className="w-24"><Field label="Rate"><input className={inputClass} type="number" value={item.rate} onChange={(e) => updateItem(idx, "rate", Number(e.target.value))} /></Field></div>
+                    <div className="pb-2 text-sm font-semibold text-amber-400">{formatCurrency(item.amount)}</div>
+                    <button onClick={() => removeItem(idx)} className="pb-2 text-rose-400 hover:text-rose-300">✕</button>
+                  </div>
                 </div>
               ))}
             </div>
